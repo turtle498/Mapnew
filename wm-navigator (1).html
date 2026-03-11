@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>WM+ Navigator</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Be+Vietnam+Pro:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--g:#00e59b;--gd:#00b478;--bg:#080e14;--card:#0f1a24;--c2:#162030;--border:rgba(0,229,155,0.13);--txt:#e8f4ff;--m:#5a7a8a;--dbg:#0d2a1e;--dt:#00b478;--red:#ff4d4d;}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{font-family:'Be Vietnam Pro',sans-serif;background:var(--bg);color:var(--txt);min-height:100dvh;display:flex;flex-direction:column;}
+.screen{display:none;flex-direction:column;flex:1;}
+.screen.active{display:flex;}
+
+/* ── IMPORT ── */
+.ih{background:linear-gradient(180deg,#0d1f2d,var(--bg));border-bottom:1px solid var(--border);padding:24px 20px 18px;text-align:center;flex-shrink:0;}
+.il{font-size:40px;margin-bottom:8px;}
+.it{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;}
+.is{font-size:12px;color:var(--m);margin-top:3px;}
+.ib{flex:1;overflow-y:auto;padding:20px 16px 40px;max-width:480px;width:100%;margin:0 auto;}
+.dz{border:2px dashed rgba(0,229,155,0.3);border-radius:18px;padding:32px 20px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;background:rgba(0,229,155,0.03);margin-bottom:14px;position:relative;}
+.dz.over{border-color:var(--g);background:rgba(0,229,155,0.08);}
+.dz input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.di{font-size:38px;margin-bottom:8px;}
+.dt2{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:4px;}
+.ds{font-size:11px;color:var(--m);line-height:1.5;}
+.ds b{color:var(--g);}
+.fbox{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:13px 15px;margin-bottom:14px;}
+.ftitle{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--m);margin-bottom:8px;}
+.ftable{width:100%;border-collapse:collapse;font-size:11px;}
+.ftable th{text-align:left;padding:3px 8px;color:var(--g);font-weight:600;border-bottom:1px solid var(--border);}
+.ftable td{padding:3px 8px;color:var(--m);font-family:monospace;border-bottom:1px solid rgba(255,255,255,0.03);}
+.ftable tr:last-child td{border-bottom:none;}
+.fnote{font-size:10px;color:var(--m);margin-top:7px;}
+.ebox{display:none;background:rgba(255,77,77,0.08);border:1px solid rgba(255,77,77,0.2);border-radius:11px;padding:11px 13px;font-size:12px;color:var(--red);margin-bottom:12px;white-space:pre-wrap;}
+.pvbox{display:none;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:13px 15px;margin-bottom:14px;}
+.pvtitle{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--m);margin-bottom:8px;}
+.pvrows{max-height:130px;overflow-y:auto;}
+.prow{font-size:11px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.04);display:flex;gap:8px;}
+.prow:last-child{border-bottom:none;}
+.pi{color:var(--m);min-width:18px;}.pn{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}.pc{color:var(--m);font-family:monospace;font-size:10px;flex-shrink:0;}
+.obtn{width:100%;padding:15px;background:linear-gradient(135deg,var(--gd),var(--g));border:none;border-radius:14px;color:#080e14;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;display:none;align-items:center;justify-content:center;gap:8px;margin-bottom:12px;transition:opacity .15s,transform .1s;}
+.obtn:active{opacity:.85;transform:scale(.98);}
+.dbtn{width:100%;padding:12px;background:rgba(0,229,155,0.07);border:1px solid var(--border);border-radius:13px;color:var(--g);font-family:'Be Vietnam Pro',sans-serif;font-size:13px;font-weight:600;cursor:pointer;}
+.dbtn:active{background:rgba(0,229,155,0.14);}
+
+/* ── CALCULATING ── */
+.cw{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:40px 20px;text-align:center;}
+.csp{width:54px;height:54px;border:3px solid rgba(0,229,155,0.12);border-top-color:var(--g);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.ct{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;}
+.cp{font-family:'Syne',sans-serif;font-size:30px;font-weight:700;color:var(--g);}
+.csub{font-size:12px;color:var(--m);}
+
+/* ── NAVIGATOR HEADER ── */
+.nh{background:linear-gradient(180deg,#0d1f2d,var(--bg));border-bottom:1px solid var(--border);padding:11px 15px;flex-shrink:0;}
+.nht{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.nb{display:flex;align-items:center;gap:8px;}
+.ni{width:33px;height:33px;background:linear-gradient(135deg,var(--gd),var(--g));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;}
+.ntit{font-family:'Syne',sans-serif;font-size:14px;font-weight:800;}
+.nsub{font-size:9px;color:var(--g);}
+.nss{display:flex;gap:6px;}
+.ns{background:rgba(0,229,155,0.08);border:1px solid var(--border);border-radius:8px;padding:4px 9px;text-align:center;}
+.nsv{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--g);line-height:1.1;}
+.nsl{font-size:8px;color:var(--m);text-transform:uppercase;letter-spacing:.4px;}
+.pl{display:flex;justify-content:space-between;font-size:10px;color:var(--m);margin-bottom:4px;}
+.pl span{color:var(--g);font-weight:600;}
+.pt{height:4px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden;}
+.pf{height:100%;background:linear-gradient(90deg,var(--gd),var(--g));border-radius:99px;transition:width .5s ease;}
+
+/* TABS */
+.tabs{display:flex;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;}
+.tab{flex:1;padding:10px;text-align:center;font-size:11px;font-weight:600;color:var(--m);cursor:pointer;border-bottom:2px solid transparent;transition:color .2s,border-color .2s;}
+.tab.active{color:var(--g);border-bottom-color:var(--g);}
+.tc{display:none;flex:1;flex-direction:column;overflow:hidden;}
+.tc.active{display:flex;}
+
+/* MAP TAB */
+#omap{flex:1;min-height:0;}
+.mleg{flex-shrink:0;background:var(--card);border-top:1px solid var(--border);padding:8px 14px;display:flex;align-items:center;gap:12px;font-size:10px;color:var(--m);}
+.li{display:flex;align-items:center;gap:5px;}
+.ld{width:10px;height:10px;border-radius:50%;}
+
+/* NAV TAB */
+.nti{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.cuw{padding:11px 14px 0;flex-shrink:0;}
+.cc{background:linear-gradient(135deg,#0d2a1e,#0f2030);border:1px solid rgba(0,229,155,0.25);border-radius:15px;padding:13px;position:relative;overflow:hidden;}
+.cc::before{content:'';position:absolute;top:-20px;right:-20px;width:90px;height:90px;background:radial-gradient(circle,rgba(0,229,155,0.07),transparent 70%);pointer-events:none;}
+.cbadge{display:inline-flex;align-items:center;gap:4px;background:rgba(0,229,155,0.12);border:1px solid rgba(0,229,155,0.25);border-radius:99px;padding:2px 9px;font-size:10px;font-weight:600;color:var(--g);margin-bottom:7px;}
+.cnum{font-size:10px;color:var(--m);font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:2px;}
+.cname{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;line-height:1.2;margin-bottom:8px;}
+.ccoord{font-size:10px;color:var(--m);font-family:monospace;margin-bottom:11px;}
+.br{display:flex;gap:8px;}
+.bmaps{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:12px;background:linear-gradient(135deg,var(--gd),var(--g));border:none;border-radius:11px;color:#080e14;font-family:'Be Vietnam Pro',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-decoration:none;transition:opacity .15s,transform .1s;}
+.bmaps:active{opacity:.85;transform:scale(.97);}
+.bdone{display:flex;align-items:center;justify-content:center;gap:5px;padding:12px 13px;background:rgba(0,229,155,0.1);border:1px solid rgba(0,229,155,0.25);border-radius:11px;color:var(--g);font-family:'Be Vietnam Pro',sans-serif;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.bdone:active{background:rgba(0,229,155,0.2);}
+.bskip{display:flex;align-items:center;justify-content:center;padding:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:11px;color:var(--m);font-size:14px;cursor:pointer;}
+.ds2{display:none;flex-direction:column;align-items:center;justify-content:center;padding:30px 20px;text-align:center;gap:8px;flex:1;}
+.di2{font-size:48px;}
+.dt3{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--g);}
+.ds3{font-size:12px;color:var(--m);}
+.dba{display:flex;gap:9px;margin-top:8px;}
+.br2{padding:11px 20px;background:rgba(0,229,155,0.1);border:1px solid var(--border);border-radius:11px;color:var(--g);font-family:'Be Vietnam Pro',sans-serif;font-size:12px;font-weight:600;cursor:pointer;}
+.bni{padding:11px 20px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:11px;color:var(--m);font-family:'Be Vietnam Pro',sans-serif;font-size:12px;font-weight:600;cursor:pointer;}
+.lh{padding:11px 14px 6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--m);flex-shrink:0;display:flex;justify-content:space-between;}
+.lhr{font-size:10px;color:var(--g);font-weight:600;text-transform:none;letter-spacing:0;}
+.sl{flex:1;overflow-y:auto;padding:0 14px 80px;}
+.sl::-webkit-scrollbar{width:3px;}
+.sl::-webkit-scrollbar-thumb{background:var(--gd);border-radius:2px;}
+.si{display:flex;align-items:center;gap:9px;padding:9px 11px;background:var(--card);border:1px solid rgba(255,255,255,0.05);border-radius:11px;margin-bottom:6px;cursor:pointer;transition:border-color .2s,background .2s;}
+.si.done{background:var(--dbg);border-color:rgba(0,180,120,0.12);opacity:.65;}
+.si.cur{border-color:rgba(0,229,155,0.4);background:#0d2218;}
+.sin{width:27px;height:27px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;font-family:'Syne',sans-serif;}
+.sin.p{background:var(--c2);color:var(--m);}
+.sin.c{background:linear-gradient(135deg,var(--gd),var(--g));color:#080e14;}
+.sin.d{background:rgba(0,180,120,0.12);color:var(--dt);font-size:13px;}
+.sii{flex:1;min-width:0;}
+.sn{font-size:11.5px;font-weight:600;color:var(--txt);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sn.done{color:var(--dt);text-decoration:line-through;opacity:.7;}
+.sn.cur{color:#fff;}
+.sc{font-size:9px;color:var(--m);font-family:monospace;margin-top:1px;}
+.stag{font-size:9px;font-weight:700;color:var(--dt);background:rgba(0,180,120,0.1);border-radius:5px;padding:2px 6px;flex-shrink:0;}
+.sar{font-size:12px;color:var(--m);flex-shrink:0;}
+.sar.cur{color:var(--g);}
+.fab{position:fixed;bottom:18px;right:14px;background:var(--card);border:1px solid var(--border);border-radius:99px;padding:9px 14px;font-size:11px;font-weight:600;color:var(--m);cursor:pointer;display:flex;align-items:center;gap:5px;box-shadow:0 4px 20px rgba(0,0,0,0.45);z-index:500;}
+.fab:active{color:var(--g);}
+</style>
+</head>
+<body>
+
+<!-- SCREEN 1: IMPORT -->
+<div class="screen active" id="s-import">
+  <div class="ih">
+    <div class="il">🧭</div>
+    <div class="it">WM+ Navigator</div>
+    <div class="is">Import stores · Tính lộ trình tối ưu · Navigate</div>
+  </div>
+  <div class="ib">
+    <div class="dz" id="dz">
+      <input type="file" id="fi" accept=".csv,.xlsx,.xls">
+      <div class="di">📂</div>
+      <div class="dt2">Kéo thả hoặc nhấn để chọn file</div>
+      <div class="ds">Hỗ trợ <b>.CSV</b> và <b>.XLSX / .XLS</b></div>
+    </div>
+    <div class="fbox">
+      <div class="ftitle">📋 Định dạng cột yêu cầu</div>
+      <table class="ftable">
+        <tr><th>Tên store</th><th>Kinh độ</th><th>Vĩ độ</th></tr>
+        <tr><td>Store Name / name</td><td>Longitude / lng</td><td>Latitude / lat</td></tr>
+      </table>
+      <div class="fnote">* Tên cột không phân biệt hoa thường &nbsp;·&nbsp; Hàng đầu là tiêu đề</div>
+    </div>
+    <div class="ebox" id="ebox"></div>
+    <div class="pvbox" id="pvbox">
+      <div class="ftitle" id="pvtitle">Xem trước</div>
+      <div class="pvrows" id="pvrows"></div>
+    </div>
+    <button class="obtn" id="obtn" onclick="startOpt()">⚡ Tính lộ trình tối ưu</button>
+    <button class="dbtn" onclick="loadDemo()">🔁 Dùng dữ liệu mẫu (30 stores Bắc Giang)</button>
+  </div>
+</div>
+
+<!-- SCREEN 2: CALCULATING -->
+<div class="screen" id="s-calc">
+  <div class="cw">
+    <div class="csp"></div>
+    <div class="ct">Đang tính toán...</div>
+    <div class="cp" id="cpct">0%</div>
+    <div class="csub" id="csub">Khởi tạo</div>
+  </div>
+</div>
+
+<!-- SCREEN 3: NAVIGATOR -->
+<div class="screen" id="s-nav">
+  <div class="nh">
+    <div class="nht">
+      <div class="nb">
+        <div class="ni">🧭</div>
+        <div><div class="ntit">WM+ Navigator</div><div class="nsub" id="nsub">—</div></div>
+      </div>
+      <div class="nss">
+        <div class="ns"><div class="nsv" id="std">0</div><div class="nsl">Xong</div></div>
+        <div class="ns"><div class="nsv" id="stl">0</div><div class="nsl">Còn</div></div>
+      </div>
+    </div>
+    <div class="pl"><span>Tiến độ</span><span id="ppct">0%</span></div>
+    <div class="pt"><div class="pf" id="pf" style="width:0%"></div></div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="swTab('map',this)">🗺️ Tổng quan</div>
+    <div class="tab" onclick="swTab('nav',this)">🧭 Navigate</div>
+    <div class="tab" onclick="swTab('list',this)">📋 Danh sách</div>
+  </div>
+
+  <!-- MAP TAB -->
+  <div class="tc active" id="tc-map">
+    <div id="omap"></div>
+    <div class="mleg">
+      <div class="li"><div class="ld" style="background:#00b4ff"></div>Đang đến</div>
+      <div class="li"><div class="ld" style="background:#00e59b"></div>Chưa đến</div>
+      <div class="li"><div class="ld" style="background:rgba(255,255,255,0.18)"></div>Đã xong</div>
+      <div style="margin-left:auto;font-size:10px;color:var(--g);font-weight:600;" id="mdist">—</div>
+    </div>
+  </div>
+
+  <!-- NAV TAB -->
+  <div class="tc" id="tc-nav">
+    <div class="nti">
+      <div class="cuw" id="cuw">
+        <div class="cc">
+          <div class="cc::before"></div>
+          <div class="cbadge">📍 Điểm tiếp theo</div>
+          <div class="cnum" id="cnum">—</div>
+          <div class="cname" id="cname">—</div>
+          <div class="ccoord" id="ccoord">—</div>
+          <div class="br">
+            <a class="bmaps" id="bmaps" href="#" target="_blank">🗺️ Mở Google Maps</a>
+            <button class="bdone" onclick="markDone()">✅ Đã đến</button>
+            <button class="bskip" onclick="skipStore()">⏭</button>
+          </div>
+        </div>
+      </div>
+      <div class="ds2" id="dstate">
+        <div class="di2">🎉</div>
+        <div class="dt3">Hoàn thành!</div>
+        <div class="ds3" id="dsubt">—</div>
+        <div class="dba">
+          <button class="br2" onclick="resetProg()">🔄 Bắt đầu lại</button>
+          <button class="bni" onclick="goImport()">📂 Import mới</button>
+        </div>
+      </div>
+      <div class="lh"><span>Stores</span><span class="lhr" id="ndist">—</span></div>
+      <div class="sl" id="nlist"></div>
+    </div>
+  </div>
+
+  <!-- LIST TAB -->
+  <div class="tc" id="tc-list">
+    <div class="lh"><span>Danh sách đầy đủ</span><span class="lhr" id="ldist">—</span></div>
+    <div class="sl" id="flist"></div>
+  </div>
+
+  <button class="fab" onclick="goImport()">📂 Import mới</button>
+</div>
+
+<script>
+let STORES=[], state={current:0,done:[]}, lmap=null, lmarkers=[], lroute=null;
+const KEY='wm_nav_v3';
+
+// utils
+const hav=(ln1,la1,ln2,la2)=>{const R=6371,dl=(ln2-ln1)*Math.PI/180,dp=(la2-la1)*Math.PI/180,a=Math.sin(dp/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dl/2)**2;return R*2*Math.asin(Math.sqrt(a));};
+const tdist=(r,s)=>{let d=0;for(let i=0;i<r.length-1;i++)d+=hav(s[r[i]].lng,s[r[i]].lat,s[r[i+1]].lng,s[r[i+1]].lat);return d;};
+const $=(id)=>document.getElementById(id);
+const showScr=(id)=>{document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));$(id).classList.add('active');};
+
+// tabs
+function swTab(name,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tc').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  $('tc-'+name).classList.add('active');
+  if(name==='map'&&lmap)setTimeout(()=>lmap.invalidateSize(),100);
+}
+
+// file import
+const dz=$('dz'),fi=$('fi');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');handleFile(e.dataTransfer.files[0]);});
+fi.addEventListener('change',e=>handleFile(e.target.files[0]));
+
+function handleFile(f){
+  if(!f)return;
+  const ext=f.name.split('.').pop().toLowerCase();
+  if(ext==='csv'){const r=new FileReader();r.onload=e=>parseCSV(e.target.result);r.readAsText(f,'UTF-8');}
+  else if(ext==='xlsx'||ext==='xls'){const r=new FileReader();r.onload=e=>parseXLSX(e.target.result);r.readAsArrayBuffer(f);}
+  else showErr('Chỉ hỗ trợ .csv, .xlsx, .xls');
+}
+function parseCSV(txt){processRows(Papa.parse(txt,{header:true,skipEmptyLines:true,dynamicTyping:true}).data);}
+function parseXLSX(buf){const wb=XLSX.read(buf,{type:'array'});processRows(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''}));}
+
+function normKey(obj,cands){
+  const keys=Object.keys(obj);
+  for(const c of cands){const f=keys.find(k=>k.toLowerCase().trim()===c.toLowerCase());if(f)return f;}
+  return null;
+}
+function processRows(rows){
+  if(!rows||rows.length===0){showErr('File trống.');return;}
+  const nk=normKey(rows[0],['store name','name','ten','tên']);
+  const lnk=normKey(rows[0],['longitude','lng','long','kinh do','kinh độ','longitute','longtitude']);
+  const lak=normKey(rows[0],['latitude','lat','vi do','vĩ độ','latitute']);
+  if(!nk||!lnk||!lak){showErr(`Không tìm thấy đúng cột.\nCần: tên store, longitude, latitude.\nTìm thấy: ${Object.keys(rows[0]).join(', ')}`);return;}
+  const stores=rows.map(r=>({name:String(r[nk]||'').trim(),lng:parseFloat(r[lnk]),lat:parseFloat(r[lak])})).filter(s=>s.name&&!isNaN(s.lng)&&!isNaN(s.lat));
+  if(stores.length<2){showErr('Cần ít nhất 2 stores.');return;}
+  showErr('');showPreview(stores);STORES=stores;
+  const b=$('obtn');b.style.display='flex';
+}
+function showErr(msg){const b=$('ebox');b.style.display=msg?'block':'none';b.textContent=msg;}
+function showPreview(s){
+  const b=$('pvbox');b.style.display='block';
+  $('pvtitle').textContent=`✅ Đọc được ${s.length} stores`;
+  const rows=$('pvrows');rows.innerHTML='';
+  s.slice(0,8).forEach((st,i)=>{const d=document.createElement('div');d.className='prow';d.innerHTML=`<span class="pi">${i+1}</span><span class="pn">${st.name}</span><span class="pc">${st.lat.toFixed(4)},${st.lng.toFixed(4)}</span>`;rows.appendChild(d);});
+  if(s.length>8){const m=document.createElement('div');m.className='prow';m.style.color='var(--m)';m.textContent=`... và ${s.length-8} stores khác`;rows.appendChild(m);}
+}
+
+function loadDemo(){
+  STORES=[
+    {name:"WM+ BNH Thôn Cát, Đồng Việt",lat:21.023810,lng:105.817838},
+    {name:"WM+ BGG Phố Bằng, An Hà",lat:21.048765,lng:105.845905},
+    {name:"WM+ BGG TDP Đề Nắm, Phồn Xương",lat:21.048765,lng:105.845906},
+    {name:"WM+ BNH Thống Nhất, Bố Hạ",lat:21.062307,lng:105.911635},
+    {name:"WM+ BNH 531-533 Đồi Ngô",lat:21.062307,lng:105.911635},
+    {name:"WM+ BNH TDP Nội Ninh, Vân Hà",lat:21.062307,lng:105.911635},
+    {name:"WM+ BNH Ngọc Thành 2, Hoàng Vân",lat:21.062307,lng:105.911635},
+    {name:"WM+ BNH Gò Pháo, Hợp Thịnh",lat:21.062307,lng:105.911635},
+    {name:"WM+ BNH Ngọc Liễn, Xuân Cẩm",lat:21.062307,lng:105.911635},
+    {name:"WM+ BGG Mai Thượng, Việt Yên",lat:21.311329,lng:106.039110},
+    {name:"WM+ BGG 208 Giáp Hải",lat:21.294680,lng:106.062699},
+    {name:"WM+ BGG 2A Võ Nguyên Giáp",lat:21.267762,lng:106.166079},
+    {name:"WM+ BGG 273 Nguyễn Văn Cừ",lat:21.269805,lng:106.201122},
+    {name:"WM+ BGG 322 Lê Lợi",lat:21.274117,lng:106.199298},
+    {name:"WM+ BGG 76+78 Đường Lê Lợi",lat:21.272195,lng:106.193930},
+    {name:"WM+ BGG 30 Nguyễn Thị Lưu",lat:21.277035,lng:106.190596},
+    {name:"WM+ BGG B3 B4 B5 Khu TMDV CC3",lat:21.283047,lng:106.190728},
+    {name:"WM+ BGG 61 Trần Nguyên Hãn",lat:21.283934,lng:106.196294},
+    {name:"WM+ BGG 36-38 Nguyễn Nghĩa Lập",lat:21.289503,lng:106.196346},
+    {name:"WM+ BGG 41 Trần Quang Khải",lat:21.290653,lng:106.202757},
+    {name:"WM+ BGG 338-340 Nguyễn Thị Lưu",lat:21.283944,lng:106.203708},
+    {name:"WM+ BGG 97 Đào Sư Tích",lat:21.280390,lng:106.207256},
+    {name:"WM+ BGG 545 Lê Lợi",lat:21.277378,lng:106.209978},
+    {name:"WM+ BGG 223 Hoàng Văn Thụ",lat:21.283395,lng:106.211562},
+    {name:"WM+ BGG 713 Lê Lợi",lat:21.283059,lng:106.218047},
+    {name:"WM+ BNH TDP Đại Phú 1, Lạng Giang",lat:21.341299,lng:106.254310},
+    {name:"WM+ BGG 98-100 Nguyễn Xuân Lan",lat:21.351561,lng:106.259378},
+    {name:"WM+ BGG 128 Nguyễn Trãi",lat:21.353508,lng:106.262180},
+    {name:"WM+ BGG Đông Phú, Yên Dũng",lat:21.243740,lng:106.263209},
+    {name:"WM+ BGG Nham Biền, Yên Dũng",lat:21.196610,lng:106.250026},
+  ];
+  showPreview(STORES);showErr('');
+  $('obtn').style.display='flex';
+}
+
+// TSP
+function startOpt(){showScr('s-calc');setTimeout(runTSP,80);}
+function runTSP(){
+  const n=STORES.length;
+  const set=(p,m)=>{$('cpct').textContent=p+'%';$('csub').textContent=m;};
+  set(10,'Tính khoảng cách...');
+  let best=null,bestD=Infinity;
+  for(let s=0;s<n;s++){
+    const uv=new Set([...Array(n).keys()]);
+    const r=[s];uv.delete(s);
+    while(uv.size){
+      const last=r[r.length-1];let near=null,nd=Infinity;
+      for(const j of uv){const d=hav(STORES[last].lng,STORES[last].lat,STORES[j].lng,STORES[j].lat);if(d<nd){nd=d;near=j;}}
+      r.push(near);uv.delete(near);
+    }
+    const d=tdist(r,STORES);if(d<bestD){bestD=d;best=r;}
+  }
+  set(55,'Tối ưu 2-opt...');
+  let imp=true,it=0;
+  while(imp&&it<300){
+    imp=false;it++;
+    for(let i=1;i<n-1;i++){
+      for(let j=i+1;j<n;j++){
+        const nr=[...best.slice(0,i),...best.slice(i,j+1).reverse(),...best.slice(j+1)];
+        if(tdist(nr,STORES)<tdist(best,STORES)){best=nr;imp=true;}
+      }
+    }
+  }
+  set(95,'Hoàn tất...');
+  STORES=best.map(i=>STORES[i]);
+  const saved=JSON.parse(localStorage.getItem(KEY)||'null');
+  state=saved&&saved.total===STORES.length?saved:{current:0,done:[],total:STORES.length};
+  setTimeout(()=>{showScr('s-nav');initMap();render();},400);
+}
+
+// MAP
+function initMap(){
+  if(lmap){lmap.remove();lmap=null;}
+  const lats=STORES.map(s=>s.lat),lngs=STORES.map(s=>s.lng);
+  const clat=(Math.min(...lats)+Math.max(...lats))/2,clng=(Math.min(...lngs)+Math.max(...lngs))/2;
+  lmap=L.map('omap',{zoomControl:true}).setView([clat,clng],11);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap © CARTO',maxZoom:19}).addTo(lmap);
+  drawMap();
+}
+
+function drawMap(){
+  if(!lmap)return;
+  lmarkers.forEach(m=>m.remove());lmarkers=[];
+  if(lroute){lroute.remove();lroute=null;}
+  // route
+  lroute=L.polyline(STORES.map(s=>[s.lat,s.lng]),{color:'#00e59b',weight:2.5,opacity:.55,dashArray:'5,5'}).addTo(lmap);
+  // markers
+  STORES.forEach((s,i)=>{
+    const isDone=state.done.includes(i),isCur=i===state.current&&!isDone;
+    const col=isDone?'rgba(255,255,255,0.15)':isCur?'#00b4ff':'#00e59b';
+    const tc=isDone?'#555':'#080e14';
+    const icon=L.divIcon({className:'',html:`<div style="width:${isCur?28:22}px;height:${isCur?28:22}px;border-radius:50%;background:${col};color:${tc};font-size:${isCur?10:9}px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,${isCur?'.4':'.15'});box-shadow:0 2px 8px rgba(0,0,0,.6);font-family:Syne,sans-serif;">${isDone?'✓':i+1}</div>`,iconSize:[isCur?28:22,isCur?28:22],iconAnchor:[isCur?14:11,isCur?14:11]});
+    const m=L.marker([s.lat,s.lng],{icon}).addTo(lmap).bindPopup(`<div style="font-family:'Be Vietnam Pro',sans-serif;padding:2px"><b style="color:#00e59b;font-size:10px">Điểm ${i+1}</b><br><span style="font-size:12px;font-weight:600">${s.name}</span>${isDone?'<br><span style="font-size:10px;color:#00b478">✓ Đã đến</span>':''}</div>`);
+    lmarkers.push(m);
+  });
+  // pan to current
+  if(!state.done.includes(state.current)&&STORES[state.current])
+    lmap.panTo([STORES[state.current].lat,STORES[state.current].lng],{animate:true,duration:.5});
+  const dist=tdist([...Array(STORES.length).keys()],STORES).toFixed(1);
+  $('mdist').textContent=`~${dist} km`;
+  $('ndist').textContent=`~${dist} km`;
+  $('ldist').textContent=`~${dist} km`;
+  $('nsub').textContent=`${STORES.length} stores · ~${dist} km`;
+}
+
+// RENDER
+function render(){rHead();rCur();rLists();drawMap();}
+
+function rHead(){
+  const total=STORES.length,dc=state.done.length,pct=Math.round(dc/total*100);
+  $('std').textContent=dc;$('stl').textContent=total-dc;
+  $('ppct').textContent=pct+'%';$('pf').style.width=pct+'%';
+}
+
+function rCur(){
+  const all=state.done.length===STORES.length;
+  $('cuw').style.display=all?'none':'block';
+  $('dstate').style.display=all?'flex':'none';
+  if(all){$('dsubt').textContent=`Bạn đã ghé đủ ${STORES.length} stores 💪`;return;}
+  let idx=state.current;
+  while(state.done.includes(idx)&&idx<STORES.length)idx++;
+  if(idx>=STORES.length){$('cuw').style.display='none';$('dstate').style.display='flex';return;}
+  state.current=idx;
+  const s=STORES[idx];
+  $('cnum').textContent=`ĐIỂM ${idx+1} / ${STORES.length}`;
+  $('cname').textContent=s.name;
+  $('ccoord').textContent=`${s.lat.toFixed(6)}, ${s.lng.toFixed(6)}`;
+  $('bmaps').href=`https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}&travelmode=driving`;
+}
+
+function rLists(){
+  ['nlist','flist'].forEach(lid=>{
+    const el=$(lid);el.innerHTML='';
+    STORES.forEach((s,i)=>{
+      const isDone=state.done.includes(i),isCur=i===state.current&&!isDone;
+      const d=document.createElement('div');
+      d.className=`si${isDone?' done':''}${isCur?' cur':''}`;
+      d.id=`si-${lid}-${i}`;
+      const nc=isDone?'d':isCur?'c':'p';
+      const snc=isDone?'done':isCur?'cur':'';
+      d.innerHTML=`<div class="sin ${nc}">${isDone?'✓':i+1}</div><div class="sii"><div class="sn ${snc}">${s.name}</div><div class="sc">${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}</div></div>${isDone?'<div class="stag">✓ Xong</div>':`<div class="sar ${isCur?'cur':''}">${isCur?'📍':'›'}</div>`}`;
+      if(!isDone){d.onclick=()=>{state.current=i;save();render();swTab('nav',document.querySelectorAll('.tab')[1]);$('cuw').scrollIntoView({behavior:'smooth'});} ;}
+      el.appendChild(d);
+    });
+  });
+}
+
+function markDone(){
+  const idx=state.current;
+  if(!state.done.includes(idx))state.done.push(idx);
+  let next=idx+1;
+  while(next<STORES.length&&state.done.includes(next))next++;
+  state.current=next<STORES.length?next:idx;
+  save();render();
+  setTimeout(()=>{const el=$(`si-nlist-${state.current}`);if(el)el.scrollIntoView({behavior:'smooth',block:'center'});},300);
+}
+function skipStore(){
+  let next=state.current+1;
+  while(next<STORES.length&&state.done.includes(next))next++;
+  if(next<STORES.length){state.current=next;save();render();}
+}
+function resetProg(){state={current:0,done:[],total:STORES.length};save();render();}
+function goImport(){
+  showScr('s-import');
+  $('pvbox').style.display='none';$('obtn').style.display='none';$('ebox').style.display='none';STORES=[];
+}
+function save(){localStorage.setItem(KEY,JSON.stringify(state));}
+</script>
+</body>
+</html>
