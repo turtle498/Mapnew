@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WM+ Bắc Giang - Lộ trình thực tế</title>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Be Vietnam Pro', sans-serif; background: #0f1923; color: #fff; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+
+  header {
+    background: linear-gradient(135deg, #0f1923, #1a2d3d);
+    border-bottom: 1px solid rgba(0,180,120,0.2);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    gap: 10px;
+  }
+
+  .logo { display: flex; align-items: center; gap: 9px; }
+  .logo-icon {
+    width: 34px; height: 34px;
+    background: linear-gradient(135deg, #00b478, #00e59b);
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; flex-shrink: 0;
+  }
+  .logo-text h1 { font-size: 15px; font-weight: 700; }
+  .logo-text p { font-size: 10px; color: #00b478; }
+
+  .stats { display: flex; gap: 8px; }
+  .stat {
+    text-align: center;
+    background: rgba(0,180,120,0.1);
+    border: 1px solid rgba(0,180,120,0.25);
+    border-radius: 9px;
+    padding: 5px 12px;
+  }
+  .stat-value { font-size: 16px; font-weight: 700; color: #00e59b; line-height: 1.2; }
+  .stat-label { font-size: 9px; color: #8899aa; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .main { display: flex; flex: 1; overflow: hidden; }
+
+  /* Sidebar ẩn trên mobile, hiện trên desktop */
+  .sidebar {
+    width: 270px;
+    background: #131f2b;
+    border-right: 1px solid rgba(0,180,120,0.15);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .sidebar-header {
+    padding: 11px 14px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #00b478;
+    border-bottom: 1px solid rgba(0,180,120,0.1);
+    flex-shrink: 0;
+  }
+  .store-list { overflow-y: auto; flex: 1; }
+  .store-list::-webkit-scrollbar { width: 3px; }
+  .store-list::-webkit-scrollbar-thumb { background: #00b478; border-radius: 2px; }
+
+  .store-item {
+    display: flex; align-items: flex-start; gap: 9px;
+    padding: 8px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .store-item:hover, .store-item.active { background: rgba(0,180,120,0.1); }
+  .store-num {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: linear-gradient(135deg, #00b478, #00e59b);
+    color: #0f1923; font-size: 9px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .store-name { font-size: 11px; font-weight: 600; color: #ddeeff; line-height: 1.3; }
+  .store-coords { font-size: 9px; color: #556677; margin-top: 1px; font-family: monospace; }
+
+  #map { flex: 1; }
+
+  .status-bar {
+    background: #0f1923;
+    border-top: 1px solid rgba(0,180,120,0.15);
+    padding: 7px 16px;
+    font-size: 11px;
+    color: #8899aa;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .status-bar span { color: #00e59b; font-weight: 600; }
+
+  /* Loading overlay */
+  #loading {
+    position: absolute;
+    inset: 0;
+    background: rgba(15,25,35,0.85);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    gap: 14px;
+  }
+  .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid rgba(0,180,120,0.2);
+    border-top-color: #00e59b;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #loading p { font-size: 13px; color: #aabbcc; }
+
+  /* Mobile: ẩn sidebar */
+  @media (max-width: 640px) {
+    .sidebar { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🗺️</div>
+    <div class="logo-text">
+      <h1>WM+ Bắc Giang</h1>
+      <p>Lộ trình thực tế tối ưu</p>
+    </div>
+  </div>
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-value">30</div>
+      <div class="stat-label">Stores</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="dist-display">~93.6</div>
+      <div class="stat-label">km</div>
+    </div>
+  </div>
+</header>
+
+<div class="main" style="position:relative;">
+  <div id="loading">
+    <div class="spinner"></div>
+    <p>Đang tính toán lộ trình thực tế...</p>
+  </div>
+
+  <div class="sidebar">
+    <div class="sidebar-header">📍 Thứ tự di chuyển tối ưu</div>
+    <div class="store-list" id="store-list"></div>
+  </div>
+
+  <div id="map"></div>
+</div>
+
+<div class="status-bar" id="status-bar">
+  Đang tải lộ trình theo đường thực tế...
+</div>
+
+<script>
+const stores = [
+  { name: "WM+ BNH Thôn Cát, Đồng Việt", lat: 21.023810, lng: 105.817838 },
+  { name: "WM+ BGG Phố Bằng, An Hà", lat: 21.048765, lng: 105.845905 },
+  { name: "WM+ BGG TDP Đề Nắm, Phồn Xương", lat: 21.048765, lng: 105.845906 },
+  { name: "WM+ BNH Thống Nhất, Bố Hạ", lat: 21.062307, lng: 105.911635 },
+  { name: "WM+ BNH 531-533 Đồi Ngô", lat: 21.062307, lng: 105.911635 },
+  { name: "WM+ BNH TDP Nội Ninh, Vân Hà", lat: 21.062307, lng: 105.911635 },
+  { name: "WM+ BNH Ngọc Thành 2, Hoàng Vân", lat: 21.062307, lng: 105.911635 },
+  { name: "WM+ BNH Gò Pháo, Hợp Thịnh", lat: 21.062307, lng: 105.911635 },
+  { name: "WM+ BNH Ngọc Liễn, Xuân Cẩm", lat: 21.062307, lng: 105.911635 },
+  { name: "WM+ BGG Mai Thượng, Việt Yên", lat: 21.311329, lng: 106.039110 },
+  { name: "WM+ BGG 208 Giáp Hải", lat: 21.294680, lng: 106.062699 },
+  { name: "WM+ BGG 2A Võ Nguyên Giáp", lat: 21.267762, lng: 106.166079 },
+  { name: "WM+ BGG 273 Nguyễn Văn Cừ", lat: 21.269805, lng: 106.201122 },
+  { name: "WM+ BGG 322 Lê Lợi", lat: 21.274117, lng: 106.199298 },
+  { name: "WM+ BGG 76+78 Đường Lê Lợi", lat: 21.272195, lng: 106.193930 },
+  { name: "WM+ BGG 30 Nguyễn Thị Lưu", lat: 21.277035, lng: 106.190596 },
+  { name: "WM+ BGG B3 B4 B5 Khu TMDV CC3", lat: 21.283047, lng: 106.190728 },
+  { name: "WM+ BGG 61 Trần Nguyên Hãn", lat: 21.283934, lng: 106.196294 },
+  { name: "WM+ BGG 36-38 Nguyễn Nghĩa Lập", lat: 21.289503, lng: 106.196346 },
+  { name: "WM+ BGG 41 Trần Quang Khải", lat: 21.290653, lng: 106.202757 },
+  { name: "WM+ BGG 338-340 Nguyễn Thị Lưu", lat: 21.283944, lng: 106.203708 },
+  { name: "WM+ BGG 97 Đào Sư Tích", lat: 21.280390, lng: 106.207256 },
+  { name: "WM+ BGG 545 Lê Lợi", lat: 21.277378, lng: 106.209978 },
+  { name: "WM+ BGG 223 Hoàng Văn Thụ", lat: 21.283395, lng: 106.211562 },
+  { name: "WM+ BGG 713 Lê Lợi", lat: 21.283059, lng: 106.218047 },
+  { name: "WM+ BNH TDP Đại Phú 1, Lạng Giang", lat: 21.341299, lng: 106.254310 },
+  { name: "WM+ BGG 98-100 Nguyễn Xuân Lan", lat: 21.351561, lng: 106.259378 },
+  { name: "WM+ BGG 128 Nguyễn Trãi", lat: 21.353508, lng: 106.262180 },
+  { name: "WM+ BGG Đông Phú, Yên Dũng", lat: 21.243740, lng: 106.263209 },
+  { name: "WM+ BGG Nham Biền, Yên Dũng", lat: 21.196610, lng: 106.250026 },
+];
+
+// Init map
+const map = L.map('map').setView([21.18, 106.05], 10);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© OpenStreetMap © CARTO', maxZoom: 19
+}).addTo(map);
+
+// Markers
+function makeIcon(num) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#00b478,#00e59b);color:#0f1923;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid rgba(255,255,255,0.25);box-shadow:0 2px 8px rgba(0,0,0,0.5);">${num}</div>`,
+    iconSize: [26, 26], iconAnchor: [13, 13]
+  });
+}
+
+const markers = stores.map((s, i) => {
+  return L.marker([s.lat, s.lng], { icon: makeIcon(i+1) })
+    .addTo(map)
+    .bindPopup(`<div style="font-family:'Be Vietnam Pro',sans-serif;padding:4px"><b style="color:#00e59b;font-size:11px">Điểm ${i+1}</b><br><span style="font-size:12px;font-weight:600">${s.name}</span></div>`);
+});
+
+// Sidebar
+const list = document.getElementById('store-list');
+stores.forEach((s, i) => {
+  const item = document.createElement('div');
+  item.className = 'store-item';
+  item.innerHTML = `<div class="store-num">${i+1}</div><div><div class="store-name">${s.name}</div><div class="store-coords">${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}</div></div>`;
+  item.onclick = () => {
+    map.setView([s.lat, s.lng], 15);
+    markers[i].openPopup();
+    document.querySelectorAll('.store-item').forEach(el => el.classList.remove('active'));
+    item.classList.add('active');
+  };
+  list.appendChild(item);
+});
+
+// Fetch real road route từ OSRM (chia batch vì OSRM giới hạn số waypoints)
+async function fetchRoute(waypoints) {
+  const coords = waypoints.map(w => `${w.lng},${w.lat}`).join(';');
+  const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson`;
+  const res = await fetch(url);
+  const data = await res.json();
+  return data;
+}
+
+async function drawRealRoute() {
+  try {
+    // Chia làm 3 batch (OSRM khuyến nghị tối đa ~15 waypoints/request)
+    const batches = [
+      stores.slice(0, 11),
+      stores.slice(10, 21),
+      stores.slice(20, 30),
+    ];
+
+    let totalDist = 0;
+    const colors = ['#00e59b', '#00b4ff', '#ffaa00'];
+
+    for (let b = 0; b < batches.length; b++) {
+      const data = await fetchRoute(batches[b]);
+      if (data.code !== 'Ok') continue;
+
+      const route = data.routes[0];
+      totalDist += route.distance;
+
+      L.geoJSON(route.geometry, {
+        style: { color: colors[b], weight: 4, opacity: 0.85 }
+      }).addTo(map);
+    }
+
+    const km = (totalDist / 1000).toFixed(1);
+    document.getElementById('dist-display').textContent = km;
+    document.getElementById('status-bar').innerHTML =
+      `✅ Lộ trình thực tế: <span>${km} km</span> &nbsp;|&nbsp; 30 stores &nbsp;|&nbsp; Bắt đầu từ: <span>WM+ BNH Thôn Cát, Đồng Việt</span>`;
+
+  } catch(e) {
+    document.getElementById('status-bar').innerHTML =
+      `⚠️ Không thể tải đường thực tế — kiểm tra kết nối internet. Hiển thị đường thẳng thay thế.`;
+
+    // Fallback: vẽ đường thẳng
+    const latlngs = stores.map(s => [s.lat, s.lng]);
+    L.polyline(latlngs, { color: '#00e59b', weight: 3, dashArray: '6,6', opacity: 0.7 }).addTo(map);
+  } finally {
+    document.getElementById('loading').style.display = 'none';
+  }
+}
+
+drawRealRoute();
+</script>
+</body>
+</html>
